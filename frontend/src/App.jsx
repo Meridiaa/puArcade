@@ -11,12 +11,55 @@ const GAMES = [
 ];
 
 const REACTIONS = ['😂', '🔥', '😱', '👏', '💀', '🤔', '🎉', '❤️'];
+const AVATARS = ['🐱', '🐼', '🦊', '🐸', '🐧', '🦄', '🐙', '🦖', '🐝', '🐢', '🦋', '🐨'];
+
+// 🎵 Sound effects using Web Audio API (no files needed)
+function playSound(type, enabled) {
+  if (!enabled) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    const beep = (freq, start, duration, vol = 0.15, wave = 'sine') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = wave;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + duration);
+    };
+
+    if (type === 'correct') {
+      beep(660, 0, 0.15);
+      beep(880, 0.1, 0.25);
+    } else if (type === 'wrong') {
+      beep(200, 0, 0.2, 0.2, 'sawtooth');
+    } else if (type === 'tick') {
+      beep(1200, 0, 0.05, 0.08);
+    } else if (type === 'win') {
+      [523, 659, 784, 1047].forEach((f, i) => beep(f, i * 0.12, 0.3, 0.15));
+    } else if (type === 'join') {
+      beep(880, 0, 0.1, 0.1);
+      beep(1175, 0.08, 0.15, 0.1);
+    } else if (type === 'start') {
+      [392, 523, 659, 784].forEach((f, i) => beep(f, i * 0.08, 0.2, 0.12));
+    } else if (type === 'streak') {
+      [659, 784, 988, 1319].forEach((f, i) => beep(f, i * 0.07, 0.25, 0.14));
+    }
+  } catch (e) { /* ignore */ }
+}
 
 function App() {
   const [screen, setScreen] = useState('home');
   const [isHost, setIsHost] = useState(false);
   const [gameType, setGameType] = useState('');
   const [playerName, setPlayerName] = useState('');
+  const [avatar, setAvatar] = useState('🐱');
   const [roomCode, setRoomCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [players, setPlayers] = useState([]);
@@ -36,15 +79,15 @@ function App() {
   const [cursor, setCursor] = useState({ x: -200, y: -200 });
   const [confetti, setConfetti] = useState([]);
   const [floatingEmojis, setFloatingEmojis] = useState([]);
+  const [soundOn, setSoundOn] = useState(true);
+  const [myStreak, setMyStreak] = useState(0);
 
-  // Power-ups
   const [myPowerUps, setMyPowerUps] = useState({ hint_used: false, freeze_used: false, mystery_used: false });
   const [hintLetter, setHintLetter] = useState(null);
   const [frozenUntil, setFrozenUntil] = useState(0);
   const [showFreezePicker, setShowFreezePicker] = useState(false);
   const [mysteryResult, setMysteryResult] = useState(null);
 
-  // Admin
   const [adminPassword, setAdminPassword] = useState('');
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [questions, setQuestions] = useState([]);
@@ -54,6 +97,7 @@ function App() {
 
   const wsRef = useRef(null);
   const timerRef = useRef(null);
+  const lastTickRef = useRef(0);
 
   const [bubbles] = useState(() =>
     Array.from({ length: 14 }, (_, i) => ({
@@ -73,34 +117,35 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (window.location.hash === '#admin') {
-      setScreen('adminLogin');
-    }
+    if (window.location.hash === '#admin') setScreen('adminLogin');
   }, []);
 
-  // WebSocket
   useEffect(() => {
     if (!roomCode || !playerName) return;
     if (['home', 'selectGame', 'enterName', 'joinRoom'].includes(screen)) return;
 
-    const ws = new WebSocket(`${WS_URL}/ws/${roomCode}/${playerName}`);
+    const ws = new WebSocket(`${WS_URL}/ws/${roomCode}/${encodeURIComponent(playerName)}?avatar=${encodeURIComponent(avatar)}`);
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
       console.log('📨', data);
 
-      if (data.type === 'players') setPlayers(data.players);
-      if (data.type === 'scores') setScores(data.scores);
-
+      if (data.type === 'players') {
+        setPlayers(data.players);
+      }
+      if (data.type === 'scores') {
+        setScores(data.scores);
+      }
       if (data.type === 'game_started') {
         setScreen('game');
         setGameOver(null); setRoundWinner(null); setRoundTimeout(null);
         setMyPowerUps({ hint_used: false, freeze_used: false, mystery_used: false });
         setHintLetter(null); setFrozenUntil(0); setMysteryResult(null);
+        setMyStreak(0);
         shootConfetti();
+        playSound('start', soundOn);
       }
-
       if (data.type === 'round_start') {
         setCurrentClue(data.clue);
         setClueNumber(data.clue_number);
@@ -110,23 +155,30 @@ function App() {
         setMyLastPoints(null); setFeedback(''); setAnswer('');
         setHintLetter(null); setMysteryResult(null);
       }
-
       if (data.type === 'you_won') {
-        setFeedback('you_won'); setMyLastPoints(data.points); shootConfetti();
+        setFeedback('you_won');
+        setMyLastPoints(data.points);
+        setMyStreak(data.streak || 0);
+        shootConfetti();
+        playSound(data.streak_bonus > 0 ? 'streak' : 'correct', soundOn);
       }
-
       if (data.type === 'round_winner') {
-        setRoundWinner({ player: data.player, points: data.points, answer: data.answer });
+        setRoundWinner({
+          player: data.player, points: data.points, answer: data.answer,
+          streak: data.streak, streak_bonus: data.streak_bonus,
+        });
         setTimeLeft(0);
       }
-
       if (data.type === 'round_timeout') {
-        setRoundTimeout({ answer: data.answer }); setTimeLeft(0);
+        setRoundTimeout({ answer: data.answer });
+        setTimeLeft(0);
+        playSound('wrong', soundOn);
       }
-
       if (data.type === 'wrong') {
         if (data.reason === 'bad_answer') {
-          setFeedback('wrong'); setTimeout(() => setFeedback(''), 800);
+          setFeedback('wrong');
+          playSound('wrong', soundOn);
+          setTimeout(() => setFeedback(''), 800);
         } else if (data.reason === 'too_late' || data.reason === 'already_won') {
           setFeedback('too_late'); setTimeout(() => setFeedback(''), 1500);
         } else if (data.reason === 'already_answered') {
@@ -135,32 +187,31 @@ function App() {
           setFeedback('frozen'); setTimeout(() => setFeedback(''), 1200);
         }
       }
-
       if (data.type === 'hint_revealed') {
         setHintLetter(data.letter);
         setMyPowerUps(p => ({ ...p, hint_used: true }));
       }
-
       if (data.type === 'player_frozen') {
-        if (data.target === playerName) {
-          setFrozenUntil(Date.now() + data.duration * 1000);
-        }
+        if (data.target === playerName) setFrozenUntil(Date.now() + data.duration * 1000);
         const id = Date.now() + Math.random();
         setFloatingEmojis(prev => [...prev, { id, emoji: '❄️', player: `${data.by} froze ${data.target}`, left: 30 + Math.random() * 40 }]);
         setTimeout(() => setFloatingEmojis(prev => prev.filter(e => e.id !== id)), 3000);
       }
-
       if (data.type === 'mystery_result') {
         setMysteryResult(data);
         setMyPowerUps(p => ({ ...p, mystery_used: true }));
-        if (data.outcome === 'win') shootConfetti();
+        if (data.outcome === 'win') {
+          shootConfetti();
+          playSound('correct', soundOn);
+        } else {
+          playSound('wrong', soundOn);
+        }
       }
-
       if (data.type === 'game_over') {
         setGameOver({ scores: data.scores, winner: data.winner });
         shootConfetti(); shootConfetti();
+        playSound('win', soundOn);
       }
-
       if (data.type === 'reaction') {
         const id = Date.now() + Math.random();
         setFloatingEmojis(prev => [...prev, { id, emoji: data.emoji, player: data.player, left: 20 + Math.random() * 60 }]);
@@ -172,16 +223,18 @@ function App() {
       ws.close();
       wsRef.current = null;
     };
-  }, [roomCode, playerName]);
+  }, [roomCode, playerName, avatar, soundOn]);
 
-  // Countdown timer
   useEffect(() => {
     if (timeLeft <= 0 || roundWinner || roundTimeout) return;
     timerRef.current = setTimeout(() => setTimeLeft(t => Math.max(0, t - 1)), 1000);
+    if (timeLeft <= 10 && timeLeft !== lastTickRef.current) {
+      lastTickRef.current = timeLeft;
+      playSound('tick', soundOn);
+    }
     return () => clearTimeout(timerRef.current);
-  }, [timeLeft, roundWinner, roundTimeout]);
+  }, [timeLeft, roundWinner, roundTimeout, soundOn]);
 
-  // Freeze countdown
   const [isFrozen, setIsFrozen] = useState(false);
   useEffect(() => {
     if (frozenUntil === 0) { setIsFrozen(false); return; }
@@ -216,6 +269,7 @@ function App() {
     setError(''); setCopied(false);
     setMyPowerUps({ hint_used: false, freeze_used: false, mystery_used: false });
     setHintLetter(null); setFrozenUntil(0); setMysteryResult(null);
+    setMyStreak(0);
   };
 
   const handleHostEnterLobby = async () => {
@@ -281,7 +335,6 @@ function App() {
     wsRef.current.send(JSON.stringify({ type: 'use_mystery' }));
   };
 
-  // ====== ADMIN ======
   const tryAdminLogin = async () => {
     try {
       await axios.post(`${API_URL}/admin/login`, { password: adminPassword });
@@ -310,13 +363,9 @@ function App() {
     }
     try {
       if (editingQ) {
-        await axios.put(`${API_URL}/admin/questions/${editingQ.id}`, {
-          clue: newClue, answers: answersArr,
-        });
+        await axios.put(`${API_URL}/admin/questions/${editingQ.id}`, { clue: newClue, answers: answersArr });
       } else {
-        await axios.post(`${API_URL}/admin/questions`, {
-          clue: newClue, answers: answersArr,
-        });
+        await axios.post(`${API_URL}/admin/questions`, { clue: newClue, answers: answersArr });
       }
       setNewClue(''); setNewAnswers(''); setEditingQ(null);
       loadQuestions();
@@ -376,6 +425,10 @@ function App() {
         <div className="cabinet-glass" />
         <div className="mascot">👾</div>
 
+        <button className="sound-toggle" onClick={() => setSoundOn(s => !s)} title={soundOn ? 'mute' : 'unmute'}>
+          {soundOn ? '🔊' : '🔇'}
+        </button>
+
         {screen === 'home' && (
           <div className="screen-content pop-in">
             <button className="admin-peek" onClick={() => setScreen('adminLogin')} title="owner access">⚙️</button>
@@ -419,6 +472,16 @@ function App() {
           <div className="screen-content pop-in">
             <button className="back-link" onClick={resetAll}>← back</button>
             <div className="pill">{gameType}</div>
+            <h2 className="step-title">pick your character</h2>
+            <div className="avatar-grid">
+              {AVATARS.map(a => (
+                <button key={a}
+                  className={`avatar-btn ${avatar === a ? 'selected' : ''}`}
+                  onClick={() => setAvatar(a)}>
+                  {a}
+                </button>
+              ))}
+            </div>
             <h2 className="step-title">what should we call you?</h2>
             <input className="fun-input" placeholder="your name..." maxLength={15}
               value={playerName} onChange={e => setPlayerName(e.target.value)} />
@@ -437,6 +500,16 @@ function App() {
             <h2 className="step-title">room code, please!</h2>
             <input className="fun-input code" placeholder="ABC123" maxLength={6}
               value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} />
+            <h2 className="step-title">pick your character</h2>
+            <div className="avatar-grid">
+              {AVATARS.map(a => (
+                <button key={a}
+                  className={`avatar-btn ${avatar === a ? 'selected' : ''}`}
+                  onClick={() => setAvatar(a)}>
+                  {a}
+                </button>
+              ))}
+            </div>
             <h2 className="step-title">and your name?</h2>
             <input className="fun-input" placeholder="your name..." maxLength={15}
               value={playerName} onChange={e => setPlayerName(e.target.value)} />
@@ -463,9 +536,9 @@ function App() {
               <div className="players-grid">
                 {players.length === 0 && <p className="loading-dots">connecting...</p>}
                 {players.map(p => (
-                  <div key={p} className={`player-bubble ${p === playerName ? 'me' : ''}`}>
-                    <span className="player-avatar">{p === playerName ? '⭐' : '👤'}</span>
-                    <span className="player-name">{p}</span>
+                  <div key={p.name} className={`player-bubble ${p.name === playerName ? 'me' : ''}`}>
+                    <span className="player-avatar">{p.avatar}</span>
+                    <span className="player-name">{p.name}</span>
                   </div>
                 ))}
               </div>
@@ -486,6 +559,7 @@ function App() {
           <div className="screen-content pop-in">
             <div className="clue-header">
               <span className="pill">🎯 clue {clueNumber} / {totalClues}</span>
+              {myStreak >= 2 && <span className="streak-chip">🔥 {myStreak}x</span>}
               {timeLeft > 0 && <span className={`timer-chip ${isUrgent ? 'urgent' : ''}`}>⏱ {timeLeft}s</span>}
             </div>
 
@@ -523,7 +597,7 @@ function App() {
                 <span className="result-emoji">🏆</span>
                 <div>
                   <strong>YOU GOT IT!</strong>
-                  <small>+{myLastPoints} points ⚡</small>
+                  <small>+{myLastPoints} points ⚡ {myStreak >= 3 && `· 🔥 ${myStreak}x streak!`}</small>
                 </div>
               </div>
             )}
@@ -547,7 +621,10 @@ function App() {
                 <span className="result-emoji">🎉</span>
                 <div>
                   <strong>{roundWinner.player} got it!</strong>
-                  <small>Answer: "{roundWinner.answer}" · +{roundWinner.points} pts</small>
+                  <small>
+                    "{roundWinner.answer}" · +{roundWinner.points} pts
+                    {roundWinner.streak_bonus > 0 && ` · 🔥 ${roundWinner.streak}x streak +${roundWinner.streak_bonus}`}
+                  </small>
                 </div>
               </div>
             )}
@@ -579,10 +656,13 @@ function App() {
 
             <div className="mini-scoreboard">
               <h4>🏆 live scores</h4>
-              {Object.entries(scores).sort((a, b) => b[1] - a[1]).map(([name, score], i) => (
+              {Object.entries(scores).sort((a, b) => b[1].score - a[1].score).map(([name, data], i) => (
                 <div key={name} className={`score-row ${name === playerName ? 'me' : ''}`}>
-                  <span>{i === 0 && score > 0 ? '👑' : (name === playerName ? '⭐' : '👤')} {name}</span>
-                  <span className="score-val">{score}</span>
+                  <span>
+                    {i === 0 && data.score > 0 ? '👑' : (name === playerName ? '⭐' : '👤')} {name}
+                    {data.streak >= 2 && <span className="streak-inline"> 🔥{data.streak}</span>}
+                  </span>
+                  <span className="score-val">{data.score}</span>
                 </div>
               ))}
             </div>
@@ -624,12 +704,12 @@ function App() {
               <h3>❄️ Freeze who?</h3>
               <p className="modal-sub">They can't type for 5 seconds!</p>
               <div className="target-list">
-                {players.filter(p => p !== playerName).map(p => (
-                  <button key={p} className="target-chip" onClick={() => useFreeze(p)}>
-                    👤 {p}
+                {players.filter(p => p.name !== playerName).map(p => (
+                  <button key={p.name} className="target-chip" onClick={() => useFreeze(p.name)}>
+                    {p.avatar} {p.name}
                   </button>
                 ))}
-                {players.filter(p => p !== playerName).length === 0 && (
+                {players.filter(p => p.name !== playerName).length === 0 && (
                   <p className="waiting-msg">no one else to freeze 🥲</p>
                 )}
               </div>

@@ -25,7 +25,9 @@ ROUND_DURATION = 30
 BASE_POINTS = 100
 HINT_COST = 30
 FREEZE_DURATION = 5
-ADMIN_PASSWORD = "puarcade-admin"   # ⚠️ Change this to something only you know!
+STREAK_BONUS = 50
+STREAK_THRESHOLD = 3
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "puarcade-admin")
 QUESTIONS_FILE = "questions.json"
 
 DEFAULT_QUESTIONS = [
@@ -59,21 +61,21 @@ questions_store = load_questions()
 print(f"📚 Loaded {len(questions_store)} questions")
 
 
-# ===================== PYDANTIC MODELS =====================
-
 class CreateRoomRequest(BaseModel):
     game_type: str
     host_name: str
 
+
 class AdminLogin(BaseModel):
     password: str
+
 
 class Question(BaseModel):
     clue: str
     answers: List[str]
 
 
-# ===================== ADMIN ENDPOINTS =====================
+# ==================== ADMIN ====================
 
 @app.post("/admin/login")
 def admin_login(req: AdminLogin):
@@ -96,7 +98,6 @@ def add_question(q: Question):
     }
     questions_store.append(new_q)
     save_questions(questions_store)
-    print(f"➕ Question added: {new_q['clue'][:40]}...")
     return {"success": True, "question": new_q}
 
 
@@ -130,7 +131,7 @@ def reset_questions():
     return {"success": True}
 
 
-# ===================== GAME ENDPOINTS =====================
+# ==================== GAME ====================
 
 @app.get("/")
 def read_root():
@@ -142,7 +143,7 @@ def create_room(request: CreateRoomRequest):
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     rooms[code] = {
         "game_type": request.game_type,
-        "players": [request.host_name],
+        "players": [],  # will store {name, avatar}
         "connections": {},
         "host": request.host_name,
         "started": False,
@@ -159,6 +160,13 @@ def create_room(request: CreateRoomRequest):
     return {"room_code": code}
 
 
+def get_player(room, name):
+    for p in room["players"]:
+        if p["name"] == name:
+            return p
+    return None
+
+
 async def broadcast(room_code: str, message: dict):
     if room_code not in rooms:
         return
@@ -173,13 +181,18 @@ async def broadcast(room_code: str, message: dict):
 
 
 async def broadcast_players(room_code: str):
-    await broadcast(room_code, {"type": "players", "players": rooms[room_code]["players"]})
+    room = rooms[room_code]
+    await broadcast(room_code, {"type": "players", "players": room["players"]})
 
 
 async def broadcast_scores(room_code: str):
     if room_code not in rooms:
         return
-    scores = {name: d["score"] for name, d in rooms[room_code]["progress"].items()}
+    room = rooms[room_code]
+    scores = {
+        name: {"score": d["score"], "streak": d.get("streak", 0)}
+        for name, d in room["progress"].items()
+    }
     await broadcast(room_code, {"type": "scores", "scores": scores})
 
 
@@ -203,7 +216,6 @@ async def start_round(room_code: str):
     room["answered_this_round"] = []
     room["round_started_at"] = datetime.now().timestamp()
 
-    # Reset per-round hint letter, but keep power-up usage flags
     for p in room["progress"]:
         room["progress"][p]["hint_letter"] = None
 
@@ -229,16 +241,27 @@ async def round_timeout(room_code: str, expected_idx: int):
 
     room["round_active"] = False
     correct = room["active_questions"][expected_idx]["answers"][0]
+    # Reset everyone's streak when nobody answered
+    for p in room["progress"]:
+        room["progress"][p]["streak"] = 0
     await broadcast(room_code, {"type": "round_timeout", "answer": correct})
+    await broadcast_scores(room_code)
     room["current_clue_index"] += 1
     await asyncio.sleep(3)
     await start_round(room_code)
 
 
-async def advance_after_win(room_code: str, winner: str, points: int, answer: str):
+async def advance_after_win(room_code: str, winner: str, points: int, answer: str, streak: int, streak_bonus: int):
     room = rooms.get(room_code)
     if not room: return
-    await broadcast(room_code, {"type": "round_winner", "player": winner, "points": points, "answer": answer})
+    await broadcast(room_code, {
+        "type": "round_winner",
+        "player": winner,
+        "points": points,
+        "answer": answer,
+        "streak": streak,
+        "streak_bonus": streak_bonus,
+    })
     await broadcast_scores(room_code)
     room["current_clue_index"] += 1
     await asyncio.sleep(3)
@@ -246,9 +269,9 @@ async def advance_after_win(room_code: str, winner: str, points: int, answer: st
 
 
 @app.websocket("/ws/{room_code}/{player_name}")
-async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: str):
+async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: str, avatar: str = "👤"):
     await websocket.accept()
-    print(f"🔌 {player_name} connected to {room_code}")
+    print(f"🔌 {player_name} ({avatar}) connected to {room_code}")
 
     if room_code not in rooms:
         rooms[room_code] = {
@@ -258,24 +281,31 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
             "round_started_at": 0, "round_task": None, "active_questions": [],
         }
 
-    if player_name not in rooms[room_code]["players"]:
-        rooms[room_code]["players"].append(player_name)
-    rooms[room_code]["connections"][player_name] = websocket
+    room = rooms[room_code]
 
-    if player_name not in rooms[room_code]["progress"]:
-        rooms[room_code]["progress"][player_name] = {
+    # Add or update player
+    existing = get_player(room, player_name)
+    if existing:
+        existing["avatar"] = avatar
+    else:
+        room["players"].append({"name": player_name, "avatar": avatar})
+
+    room["connections"][player_name] = websocket
+
+    if player_name not in room["progress"]:
+        room["progress"][player_name] = {
             "score": 0,
             "frozen_until": 0,
             "hint_used": False,
             "freeze_used": False,
             "mystery_used": False,
             "hint_letter": None,
+            "streak": 0,
         }
 
     await broadcast_players(room_code)
     await broadcast_scores(room_code)
 
-    room = rooms[room_code]
     if room["started"] and room["round_active"]:
         idx = room["current_clue_index"]
         if idx < len(room["active_questions"]):
@@ -296,7 +326,6 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
             room = rooms[room_code]
             print(f"📨 [{room_code}] {player_name}: {msg_type}")
 
-            # ---- START GAME ----
             if msg_type == "start_game":
                 if player_name != room["host"]: continue
                 if not questions_store:
@@ -307,28 +336,24 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
                 room["active_questions"] = [dict(q) for q in questions_store]
                 random.shuffle(room["active_questions"])
                 for p in room["players"]:
-                    room["progress"][p] = {
+                    room["progress"][p["name"]] = {
                         "score": 0, "frozen_until": 0,
                         "hint_used": False, "freeze_used": False, "mystery_used": False,
-                        "hint_letter": None,
+                        "hint_letter": None, "streak": 0,
                     }
                 await broadcast(room_code, {"type": "game_started"})
                 await broadcast_scores(room_code)
                 await asyncio.sleep(1)
                 await start_round(room_code)
 
-            # ---- SUBMIT ANSWER ----
             elif msg_type == "submit_answer":
                 if not room["round_active"]:
                     await websocket.send_json({"type": "wrong", "reason": "round_not_active"})
                     continue
-
-                # Check freeze
                 p = room["progress"].get(player_name)
                 if p and p["frozen_until"] > datetime.now().timestamp():
                     await websocket.send_json({"type": "wrong", "reason": "frozen"})
                     continue
-
                 if room["round_winner"] is not None:
                     await websocket.send_json({"type": "wrong", "reason": "already_won"})
                     continue
@@ -343,35 +368,52 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
                 if answer in correct_answers:
                     elapsed = datetime.now().timestamp() - room["round_started_at"]
                     time_bonus = max(0, int((ROUND_DURATION - elapsed) * 3))
-                    points = BASE_POINTS + time_bonus
+                    base_win_points = BASE_POINTS + time_bonus
+
+                    # Streak logic
+                    p["streak"] = p.get("streak", 0) + 1
+                    streak_bonus = STREAK_BONUS if p["streak"] >= STREAK_THRESHOLD else 0
+                    total_points = base_win_points + streak_bonus
+                    p["score"] += total_points
+
+                    # Reset others' streaks
+                    for other_name, other_p in room["progress"].items():
+                        if other_name != player_name:
+                            other_p["streak"] = 0
+
                     room["round_winner"] = player_name
                     room["round_active"] = False
-                    room["progress"][player_name]["score"] += points
 
                     if room["round_task"]:
                         room["round_task"].cancel()
                         room["round_task"] = None
 
-                    await websocket.send_json({"type": "you_won", "points": points, "time_bonus": time_bonus})
-                    asyncio.create_task(advance_after_win(room_code, player_name, points, correct_answers[0]))
+                    await websocket.send_json({
+                        "type": "you_won",
+                        "points": total_points,
+                        "time_bonus": time_bonus,
+                        "streak": p["streak"],
+                        "streak_bonus": streak_bonus,
+                    })
+                    asyncio.create_task(advance_after_win(
+                        room_code, player_name, total_points, correct_answers[0],
+                        p["streak"], streak_bonus
+                    ))
                 else:
                     room["answered_this_round"].append(player_name)
                     await websocket.send_json({"type": "wrong", "reason": "bad_answer"})
 
-            # ---- USE HINT ----
             elif msg_type == "use_hint":
                 p = room["progress"].get(player_name)
                 if not p or p["hint_used"]: continue
                 if not room["round_active"]: continue
                 idx = room["current_clue_index"]
                 if idx >= len(room["active_questions"]): continue
-
                 first_answer = room["active_questions"][idx]["answers"][0]
                 first_letter = first_answer[0].upper()
                 p["hint_used"] = True
                 p["hint_letter"] = first_letter
                 p["score"] = max(0, p["score"] - HINT_COST)
-
                 await websocket.send_json({"type": "hint_revealed", "letter": first_letter, "cost": HINT_COST})
                 await broadcast_scores(room_code)
                 await broadcast(room_code, {
@@ -379,7 +421,6 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
                     "player": f"{player_name} used a hint"
                 })
 
-            # ---- USE FREEZE ----
             elif msg_type == "use_freeze":
                 target = data.get("target")
                 p = room["progress"].get(player_name)
@@ -387,23 +428,18 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
                 if not room["round_active"]: continue
                 if not target or target not in room["progress"]: continue
                 if target == player_name: continue
-
                 p["freeze_used"] = True
                 room["progress"][target]["frozen_until"] = datetime.now().timestamp() + FREEZE_DURATION
-
                 await broadcast(room_code, {
                     "type": "player_frozen",
-                    "target": target,
-                    "by": player_name,
+                    "target": target, "by": player_name,
                     "duration": FREEZE_DURATION,
                 })
 
-            # ---- USE MYSTERY BOX ----
             elif msg_type == "use_mystery":
                 p = room["progress"].get(player_name)
                 if not p or p["mystery_used"]: continue
                 if not room["round_active"]: continue
-
                 p["mystery_used"] = True
                 roll = random.random()
                 if roll < 0.5:
@@ -414,7 +450,6 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
                     penalty = 50
                     p["score"] = max(0, p["score"] - penalty)
                     result = {"outcome": "lose", "points": -penalty}
-
                 await websocket.send_json({"type": "mystery_result", **result})
                 await broadcast_scores(room_code)
                 await broadcast(room_code, {
@@ -423,7 +458,6 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
                     "player": f"{player_name} opened a mystery box"
                 })
 
-            # ---- REACTION ----
             elif msg_type == "reaction":
                 await broadcast(room_code, {
                     "type": "reaction",
@@ -436,6 +470,5 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_name: 
         room = rooms.get(room_code)
         if room:
             room["connections"].pop(player_name, None)
-            if player_name in room["players"]:
-                room["players"].remove(player_name)
+            room["players"] = [p for p in room["players"] if p["name"] != player_name]
             await broadcast_players(room_code)
