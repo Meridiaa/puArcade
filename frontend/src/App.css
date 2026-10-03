@@ -1106,3 +1106,480 @@ body {
   font-weight: 700;
   font-size: 0.85rem;
 }
+
+/* ===== MAFIA SCREEN ===== */
+.mafia-screen {
+  gap: 0.8rem;
+}
+
+.phase-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-radius: 16px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.phase-banner.night {
+  background: linear-gradient(135deg, #4a3a7a 0%, #2b1e52 100%);
+  color: #d8d0ff;
+}
+.phase-banner.dawn {
+  background: linear-gradient(135deg, #ffb86b 0%, #ff8c42 100%);
+  color: white;
+}
+.phase-banner.discussion {
+  background: linear-gradient(135deg, #a1c4fd 0%, #7ba7f7 100%);
+  color: white;
+}
+.phase-banner.voting {
+  background: linear-gradient(135deg, #ff6b9d 0%, #d94378 100%);
+  color: white;
+}
+
+.phase-timer {
+  background: rgba(255,255,255,0.25);
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+/* ===== ROLE REVEAL ===== */
+.mafia-role-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.role-phase-label {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #a688b8;
+}
+
+.role-card {
+  width: 100%;
+  padding: 1.5rem 1.2rem;
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  border: 3px solid;
+  animation: roleFlip 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes roleFlip {
+  0% { transform: rotateY(90deg) scale(0.8); opacity: 0; }
+  100% { transform: rotateY(0) scale(1); opacity: 1; }
+}
+
+.role-card.saboteur {
+  background: linear-gradient(135deg, #2b1e3a 0%, #4a2a4a 100%);
+  border-color: #d94378;
+  color: #ffe0ee;
+}
+.role-card.investigator {
+  background: linear-gradient(135deg, #1e3a52 0%, #2a4a5a 100%);
+  border-color: #7ec8ff;
+  color: #d8f0ff;
+}
+.role-card.student {
+  background: linear-gradient(135deg, #fff8f0 0%, #ffe8f3 100%);
+  border-color: #ffb0d0;
+  color: var(--ink);
+}
+
+.role-emoji { font-size: 3.5rem; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); }
+.role-name { font-family: 'Fredoka', sans-serif; font-size: 1.6rem; font-weight: 700; }
+.role-desc { font-size: 0.9rem; line-height: 1.4; max-width: 320px; opacity: 0.9; }
+
+.role-teammates {
+  margin-top: 0.5rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed rgba(255,255,255,0.3);
+  width: 100%;
+  font-size: 0.85rem;
+}
+.teammate-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.4rem;
+}
+.teammate-chip {
+  background: rgba(255,255,255,0.2);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+}
+
+.mafia-timer {
+  color: #a688b8;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.85rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ===== NIGHT ===== */
+.mafia-night { display: flex; flex-direction: column; gap: 0.8rem; }
+
+.night-action-card {
+  background: linear-gradient(135deg, #2b1e3a 0%, #3a2a5a 100%);
+  border-radius: 20px;
+  padding: 1.2rem 1rem;
+  border: 2px solid #d94378;
+  color: #ffe0ee;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+.night-action-card.investigator {
+  background: linear-gradient(135deg, #1e3a52 0%, #2a4a6a 100%);
+  border-color: #7ec8ff;
+  color: #d8f0ff;
+}
+
+.night-action-card h3 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.15rem;
+  margin-bottom: 0.3rem;
+  text-align: center;
+}
+.action-sub {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  text-align: center;
+  margin-bottom: 0.9rem;
+}
+
+.target-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.target-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 14px;
+  color: inherit;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 0.9rem;
+}
+.target-btn:hover { transform: translateY(-2px) scale(1.02); background: rgba(255,255,255,0.2); }
+.target-btn.selected {
+  background: rgba(255, 107, 157, 0.35);
+  border-color: #ff6b9d;
+  transform: scale(1.03);
+  box-shadow: 0 0 20px rgba(255, 107, 157, 0.5);
+}
+
+.target-avatar { font-size: 1.2rem; }
+.target-check { margin-left: auto; color: #7fe6b8; font-weight: bold; }
+
+.night-done {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(127, 230, 184, 0.2);
+  border-radius: 14px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  color: #7fe6b8;
+}
+
+.investigation-result {
+  text-align: center;
+  padding: 1.2rem;
+  border-radius: 16px;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.investigation-result.good { background: rgba(127, 230, 184, 0.25); border: 2px solid #7fe6b8; }
+.investigation-result.bad { background: rgba(255, 107, 107, 0.25); border: 2px solid #ff6b6b; }
+.inv-target { font-family: 'Fredoka', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.4rem; }
+.inv-verdict { font-family: 'Fredoka', sans-serif; font-size: 1.1rem; font-weight: 600; }
+
+.night-sleep {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: linear-gradient(135deg, #1e1e3a 0%, #2a2a4a 100%);
+  border-radius: 20px;
+  color: #d8d0ff;
+}
+.sleep-moon { font-size: 3rem; animation: mascotBob 3s ease-in-out infinite; }
+.night-sleep h3 { font-family: 'Fredoka', sans-serif; margin: 0.5rem 0; }
+.night-sleep p { font-size: 0.9rem; opacity: 0.8; }
+.sleep-dots { display: flex; gap: 0.4rem; justify-content: center; margin-top: 1rem; }
+.sleep-dots span {
+  width: 8px; height: 8px; border-radius: 50%; background: #d8d0ff;
+  animation: dotBounce 1.4s infinite;
+}
+.sleep-dots span:nth-child(2) { animation-delay: 0.2s; }
+.sleep-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ===== DAWN ===== */
+.mafia-dawn { display: flex; flex-direction: column; gap: 0.8rem; }
+
+.dawn-result {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  border-radius: 20px;
+  animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dawn-result.death {
+  background: linear-gradient(135deg, #ffe0e0 0%, #ffd1d1 100%);
+  border: 3px dashed #ff6b6b;
+}
+.dawn-result.peace {
+  background: linear-gradient(135deg, #d3ffe6 0%, #b8f7d8 100%);
+  border: 3px dashed #7fe6b8;
+}
+.dawn-emoji { font-size: 3rem; animation: mascotBob 2s ease-in-out infinite; }
+.dawn-result h3 { font-family: 'Fredoka', sans-serif; margin: 0.5rem 0; color: var(--ink); }
+.dawn-name {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #c4374f;
+  margin-top: 0.5rem;
+}
+.dawn-role { font-size: 0.9rem; color: #a688b8; margin-top: 0.3rem; }
+.dawn-result.peace p { color: #1f9c78; font-size: 0.9rem; }
+
+/* ===== DISCUSSION ===== */
+.mafia-discussion { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; }
+
+.alive-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+.alive-chip {
+  background: white;
+  border: 2px solid #ffe0ef;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.alive-chip.me {
+  background: linear-gradient(135deg, #ffe0ef 0%, #ffd1e3 100%);
+  border-color: var(--pink);
+}
+
+.mafia-chat {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 140px;
+  max-height: 240px;
+  background: rgba(255, 248, 250, 0.9);
+  border-radius: 16px;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 2px solid #ffe0ef;
+}
+
+.mafia-chat::-webkit-scrollbar { width: 5px; }
+.mafia-chat::-webkit-scrollbar-thumb { background: rgba(255, 130, 190, 0.4); border-radius: 3px; }
+
+.chat-empty {
+  text-align: center;
+  color: #a688b8;
+  font-style: italic;
+  font-size: 0.85rem;
+  margin: auto;
+}
+
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem 0.7rem;
+  background: white;
+  border-radius: 12px;
+  max-width: 85%;
+  border: 1px solid #ffe0ef;
+  animation: popIn 0.3s ease;
+}
+.chat-msg.me {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #ffe0ef 0%, #ffd1e3 100%);
+  border-color: #ffb0d0;
+}
+.chat-author {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #a688b8;
+}
+.chat-text {
+  font-size: 0.9rem;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.mafia-chat-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.mafia-chat-bar .fun-input { padding: 0.7rem 1rem; font-size: 0.9rem; }
+.mafia-chat-bar .send-btn {
+  width: 42px; height: 42px; font-size: 1.1rem;
+  box-shadow: 0 4px 0 #d94378, 0 6px 12px rgba(255, 110, 179, 0.35);
+}
+
+/* ===== VOTING ===== */
+.mafia-voting { display: flex; flex-direction: column; gap: 0.8rem; }
+
+.vote-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.vote-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 0.9rem;
+  background: white;
+  border: 2px solid #ffe0ef;
+  border-radius: 14px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 0.9rem;
+}
+.vote-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  border-color: #ff8fc5;
+}
+.vote-btn:disabled { cursor: not-allowed; }
+.vote-btn.selected {
+  background: linear-gradient(135deg, #ff9dc7 0%, #ff6eb3 100%);
+  color: white;
+  border-color: #d94378;
+  box-shadow: 0 4px 12px rgba(255, 110, 179, 0.4);
+}
+.vote-avatar { font-size: 1.2rem; }
+.vote-name { flex: 1; text-align: left; }
+.vote-count {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  background: #ff6b35;
+  color: white;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(255, 107, 53, 0.5);
+  animation: popIn 0.3s ease;
+}
+
+.vote-locked {
+  text-align: center;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  color: #ff6eb3;
+  padding: 0.5rem;
+}
+
+/* ===== GHOST ===== */
+.ghost-view {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: rgba(200, 200, 220, 0.15);
+  border-radius: 20px;
+  border: 2px dashed #b0b0c8;
+}
+.ghost-emoji { font-size: 3rem; animation: mascotBob 3s ease-in-out infinite; }
+.ghost-view p { color: #a688b8; font-style: italic; margin-top: 0.5rem; }
+
+/* ===== MAFIA GAME OVER ===== */
+.mafia-over { gap: 1rem; }
+
+.mafia-winner-banner {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  border-radius: 24px;
+  color: white;
+  animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.mafia-winner-banner.students {
+  background: linear-gradient(135deg, #7fe6b8 0%, #34c99c 100%);
+  box-shadow: 0 10px 30px rgba(52, 201, 156, 0.4);
+}
+.mafia-winner-banner.saboteurs {
+  background: linear-gradient(135deg, #d94378 0%, #7a1e4a 100%);
+  box-shadow: 0 10px 30px rgba(217, 67, 120, 0.4);
+}
+.winner-emoji { font-size: 4rem; animation: mascotExcited 0.6s ease-in-out infinite; }
+.mafia-winner-banner h2 { font-family: 'Fredoka', sans-serif; font-size: 1.8rem; margin: 0.5rem 0; }
+.winner-sub { font-size: 0.9rem; opacity: 0.95; }
+
+.reveal-title {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1rem;
+  color: #a688b8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.role-reveal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.role-reveal-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  background: white;
+  border: 2px solid #ffe0ef;
+  border-radius: 14px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.9rem;
+  animation: popIn 0.4s ease;
+}
+.role-reveal-row.dead { opacity: 0.5; text-decoration: line-through; }
+
+.role-reveal-avatar { font-size: 1.3rem; }
+.role-reveal-name { flex: 1; text-align: left; font-weight: 600; }
+.role-reveal-role {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.role-reveal-role.saboteur { background: #ffe0ee; color: #c4374f; }
+.role-reveal-role.investigator { background: #d8f0ff; color: #1f6ea8; }
+.role-reveal-role.student { background: #d3ffe6; color: #1f9c78; }
