@@ -1,96 +1,60 @@
 # 🎮 puArcade
 
-A real-time multiplayer campus arcade — where your university becomes the game board!
+A real-time multiplayer campus arcade with two full game modes.
 
-🔗 **[Live Demo](https://puarcade-frontend.onrender.com)** ← replace with your URL
+🔗 **[Live Demo](https://puarcade-frontend.onrender.com)**
 
-## ✨ Features
+## 🎯 Game Modes
 
-- 🗺️ **Campus Treasure Hunt** — Race against friends to solve riddles. First correct answer wins.
-- ⚡ **Power-ups** — Hint (reveals first letter), Freeze (locks a player for 5s), Mystery Box (gamble for points)
-- 💬 **Live reactions** — Emoji reactions float across everyone's screen in real-time
-- ⏱ **Timed rounds** — 30-second countdown with speed bonuses
-- 🏆 **Live scoreboard** — Updates instantly for all players, with medals at the end
-- 🔐 **Admin panel** — Owner-only question manager (password protected)
-- 🎨 **Kawaii UI** — Pastel gradients, floating emojis, cursor glow, confetti
+### 🗺️ Campus Treasure Hunt
+Race against friends to solve riddles. First correct answer wins the round.
+- ⚡ Power-ups: Hint, Freeze, Mystery Box
+- 🔥 Streak system with bonus points
+- ⏱ Timed rounds with speed bonuses
+
+### 🕵️ Campus Mafia
+Social deduction at its finest. Trust no one.
+- 🎭 Secret roles (Saboteur, Investigator, Student)
+- 🌙 Night actions (eliminate, investigate)
+- 💬 Live discussion chat
+- 🗳️ Anonymous voting with live tally
+- 🏆 Win conditions: Students vs Saboteurs
+
+## ✨ Cross-game features
+- 🎭 Emoji avatar picker
+- 🔊 Procedural sound effects (no files!)
+- 💬 Floating emoji reactions
+- 🎨 Kawaii UI with animated gradients, cursor glow, and confetti
+- 🔐 Owner-only admin panel for question management
 
 ## 🧰 Tech Stack
-
-**Frontend**
-- React + Vite
-- CSS3 animations
-- WebSocket client
-
-**Backend**
-- Python + FastAPI
-- WebSocket server (via `uvicorn[standard]`)
-- In-memory room/state management
-- JSON-based question persistence
-
-**Deployment**
-- Frontend: Render Static Site
-- Backend: Render Web Service
+**Frontend** — React + Vite, WebSocket client, custom CSS
+**Backend** — Python + FastAPI, WebSockets via `uvicorn[standard]`, in-memory game state
+**Deployment** — Render (Static Site + Web Service)
 
 ## 🚀 Run Locally
 
-### 1. Clone the repo
-\`\`\`bash
-git clone https://github.com/Meridiaa/puArcade.git
-cd puArcade
-\`\`\`
-
-### 2. Setup backend
+### Backend
 \`\`\`bash
 cd backend
 python -m venv venv
-
-# Activate (Windows)
-.\venv\Scripts\Activate.ps1
-# Activate (Mac/Linux)
-source venv/bin/activate
-
+.\venv\Scripts\Activate.ps1     # Windows
 pip install -r requirements.txt
 python -m uvicorn main:app --reload
 \`\`\`
-Backend runs at `http://127.0.0.1:8000`
 
-### 3. Setup frontend
+### Frontend (new terminal)
 \`\`\`bash
 cd frontend
 npm install
 npm run dev
 \`\`\`
-Frontend runs at `http://localhost:5173`
+
+Visit `http://localhost:5173`.
 
 ## 🔐 Admin Access
-
-Add questions to the game pool by visiting:
-\`\`\`
-http://localhost:5173/#admin
-\`\`\`
-
-Default password is set via the `ADMIN_PASSWORD` environment variable. Change it in `backend/main.py` for local use.
-
-## 🎮 How to Play
-
-1. One player **Hosts a Game** and shares the 6-digit room code
-2. Friends **Join a Game** with that code
-3. Host clicks **Start Game**
-4. Everyone sees the same clue and races to type the correct answer
-5. Fastest player earns the points (speed bonus included!)
-6. Use power-ups strategically — they're once-per-game
-7. After all clues, final scoreboard shows the winner 🏆
-
-## 📌 Notes
-
-- Backend runs on Render's free tier — first request after inactivity may take 30-60 seconds to wake up
-- Game state is held in memory; restarting the backend clears active rooms
-- Questions persist via `questions.json` in the backend folder
+Add your own Treasure Hunt questions at `http://localhost:5173/#admin`.
+Password set via `ADMIN_PASSWORD` env var (default: `puarcade-admin`).
 
 ## 👤 Author
-
 **Prachi** — [GitHub](https://github.com/Meridiaa)
-
----
-
-*Built from scratch with zero prior coding experience. If you liked it, drop a ⭐!*
