@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000';
+
 const GAMES = [
   { id: 'Treasure Hunt', emoji: '🗺️', title: 'Campus Treasure Hunt', tagline: 'Race against friends — first to answer wins!' },
   { id: 'Mafia', emoji: '🕵️', title: 'Campus Mafia', tagline: 'Trust no one. Find the saboteur.' },
@@ -38,7 +41,6 @@ function App() {
   const [myPowerUps, setMyPowerUps] = useState({ hint_used: false, freeze_used: false, mystery_used: false });
   const [hintLetter, setHintLetter] = useState(null);
   const [frozenUntil, setFrozenUntil] = useState(0);
-  const [freezeTarget, setFreezeTarget] = useState(null);
   const [showFreezePicker, setShowFreezePicker] = useState(false);
   const [mysteryResult, setMysteryResult] = useState(null);
 
@@ -70,7 +72,6 @@ function App() {
     return () => window.removeEventListener('mousemove', move);
   }, []);
 
-  // Admin secret URL access
   useEffect(() => {
     if (window.location.hash === '#admin') {
       setScreen('adminLogin');
@@ -82,7 +83,7 @@ function App() {
     if (!roomCode || !playerName) return;
     if (['home', 'selectGame', 'enterName', 'joinRoom'].includes(screen)) return;
 
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${roomCode}/${playerName}`);
+    const ws = new WebSocket(`${WS_URL}/ws/${roomCode}/${playerName}`);
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
@@ -221,7 +222,7 @@ function App() {
     if (!playerName.trim()) { setError("Don't forget your name! ✏️"); return; }
     setError('');
     try {
-      const res = await axios.post('http://127.0.0.1:8000/create-room', { game_type: gameType, host_name: playerName });
+      const res = await axios.post(`${API_URL}/create-room`, { game_type: gameType, host_name: playerName });
       setRoomCode(res.data.room_code);
       setScreen('lobby');
       shootConfetti();
@@ -283,7 +284,7 @@ function App() {
   // ====== ADMIN ======
   const tryAdminLogin = async () => {
     try {
-      await axios.post('http://127.0.0.1:8000/admin/login', { password: adminPassword });
+      await axios.post(`${API_URL}/admin/login`, { password: adminPassword });
       setAdminUnlocked(true);
       setScreen('adminPanel');
       loadQuestions();
@@ -295,7 +296,7 @@ function App() {
 
   const loadQuestions = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/admin/questions');
+      const res = await axios.get(`${API_URL}/admin/questions`);
       setQuestions(res.data.questions);
     } catch (err) { console.error(err); }
   };
@@ -309,11 +310,11 @@ function App() {
     }
     try {
       if (editingQ) {
-        await axios.put(`http://127.0.0.1:8000/admin/questions/${editingQ.id}`, {
+        await axios.put(`${API_URL}/admin/questions/${editingQ.id}`, {
           clue: newClue, answers: answersArr,
         });
       } else {
-        await axios.post('http://127.0.0.1:8000/admin/questions', {
+        await axios.post(`${API_URL}/admin/questions`, {
           clue: newClue, answers: answersArr,
         });
       }
@@ -323,7 +324,7 @@ function App() {
   };
 
   const deleteQuestion = async (id) => {
-    await axios.delete(`http://127.0.0.1:8000/admin/questions/${id}`);
+    await axios.delete(`${API_URL}/admin/questions/${id}`);
     loadQuestions();
   };
 
@@ -560,9 +561,8 @@ function App() {
               </div>
             )}
 
-            {/* Power-ups bar */}
             <div className="powerups-bar">
-              <button className={`powerup-btn ${myPowerUps.hint_used ? 'used' : ''}`} onClick={useHint} disabled={myPowerUps.hint_used || !roundWinner && roundWinner !== null}>
+              <button className={`powerup-btn ${myPowerUps.hint_used ? 'used' : ''}`} onClick={useHint} disabled={myPowerUps.hint_used}>
                 <span>⚡</span>
                 <small>{myPowerUps.hint_used ? 'used' : 'hint'}</small>
               </button>
@@ -618,7 +618,6 @@ function App() {
           </div>
         )}
 
-        {/* ===== FREEZE PICKER MODAL ===== */}
         {showFreezePicker && (
           <div className="modal-overlay" onClick={() => setShowFreezePicker(false)}>
             <div className="modal-box pop-in" onClick={e => e.stopPropagation()}>
@@ -639,7 +638,6 @@ function App() {
           </div>
         )}
 
-        {/* ===== ADMIN LOGIN ===== */}
         {screen === 'adminLogin' && (
           <div className="screen-content pop-in">
             <button className="back-link" onClick={resetAll}>← back</button>
@@ -656,7 +654,6 @@ function App() {
           </div>
         )}
 
-        {/* ===== ADMIN PANEL ===== */}
         {screen === 'adminPanel' && adminUnlocked && (
           <div className="screen-content pop-in admin-panel">
             <div className="admin-badge">🔐 OWNER MODE</div>
